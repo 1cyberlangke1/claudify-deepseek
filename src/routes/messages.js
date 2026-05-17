@@ -2,7 +2,7 @@ const config = require('../config')
 const { convertRequest } = require('../convert/to-openai')
 const { convertNonStreaming } = require('../convert/to-anthropic')
 const { createStreamConverter } = require('../stream/convert-stream')
-const { mapUpstreamError } = require('../utils/errors')
+const { getApiKey } = require('../utils/helpers')
 const logger = require('../utils/logger')
 
 async function handleMessages(req, res) {
@@ -15,6 +15,14 @@ async function handleMessages(req, res) {
     has_thinking: !!body.thinking,
     has_tools: !!(body.tools?.length),
   })
+
+  const apiKey = getApiKey(req)
+  if (!apiKey) {
+    return res.status(401).json({
+      type: 'error',
+      error: { type: 'authentication_error', message: 'x-api-key or anthropic-auth-token header required' },
+    })
+  }
 
   const openaiReq = convertRequest(body)
   if (isStream) {
@@ -29,7 +37,7 @@ async function handleMessages(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.upstreamApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify(openaiReq),
     })
@@ -38,9 +46,8 @@ async function handleMessages(req, res) {
     if (!upstreamRes.ok) {
       let errBody
       try { errBody = await upstreamRes.json() } catch { errBody = null }
-      const err = mapUpstreamError(upstreamRes.status, errBody)
       logger.warn('← upstream error', { status: upstreamRes.status, ms: Date.now() - start })
-      return res.status(err.statusCode).json(err.toAnthropic())
+      return res.status(upstreamRes.status).json(errBody)
     }
 
     if (isStream) {

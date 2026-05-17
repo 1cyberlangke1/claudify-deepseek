@@ -1,10 +1,18 @@
 const config = require('../config')
+const { getApiKey } = require('../utils/helpers')
 
 async function handleModels(req, res) {
+  const apiKey = getApiKey(req)
+  if (!apiKey) {
+    return res.status(401).json({
+      type: 'error',
+      error: { type: 'authentication_error', message: 'x-api-key or anthropic-auth-token header required' },
+    })
+  }
   try {
     const upstreamRes = await fetch(`${config.upstreamBaseUrl}/models`, {
       headers: {
-        'Authorization': `Bearer ${config.upstreamApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
     })
 

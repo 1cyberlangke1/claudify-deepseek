@@ -1,3 +1,7 @@
+function getApiKey(req) {
+  return req.headers['x-api-key'] || req.headers['anthropic-auth-token'] || null
+}
+
 function buildToolCallMap(toolCalls) {
   if (!toolCalls) return null
   const map = {}
@@ -18,4 +22,4 @@ function parseToolCallDelta(delta) {
   return buildToolCallMap(delta.tool_calls)
 }
 
-module.exports = { buildToolCallMap, parseToolCallDelta }
+module.exports = { getApiKey, buildToolCallMap, parseToolCallDelta }
