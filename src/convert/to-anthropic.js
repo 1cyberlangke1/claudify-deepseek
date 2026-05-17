@@ -55,6 +55,8 @@ function convertNonStreaming(body) {
     usage: {
       input_tokens: usage.prompt_tokens || 0,
       output_tokens: usage.completion_tokens || 0,
+      ...(usage.prompt_cache_hit_tokens != null && { cache_read_input_tokens: usage.prompt_cache_hit_tokens }),
+      ...(usage.prompt_cache_miss_tokens != null && { cache_creation_input_tokens: usage.prompt_cache_miss_tokens }),
     },
   }
 }

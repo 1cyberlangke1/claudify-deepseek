@@ -12,6 +12,7 @@ function createStreamConverter(upstreamResponse, res) {
   let startedToolIndices = new Set()
   let toolIndexToBlockIndex = {}
   let toolBlockIndicesInOrder = []
+  let finalUsage = null
 
   function sendSSE(event, data) {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
@@ -140,13 +141,17 @@ function createStreamConverter(upstreamResponse, res) {
 
     if (finishReason || (usage && !delta.reasoning_content && !delta.content && !delta.tool_calls)) {
       closeCurrentBlock()
+      finalUsage = usage
 
       const stopReason = FINISH_REASON_MAP[finishReason] || 'end_turn'
       sendSSE('message_delta', {
         type: 'message_delta',
         delta: { stop_reason: stopReason, stop_sequence: null },
         usage: {
+          input_tokens: usage ? (usage.prompt_tokens || 0) : 0,
           output_tokens: usage ? (usage.completion_tokens || 0) : 0,
+          ...(usage?.prompt_cache_hit_tokens != null && { cache_read_input_tokens: usage.prompt_cache_hit_tokens }),
+          ...(usage?.prompt_cache_miss_tokens != null && { cache_creation_input_tokens: usage.prompt_cache_miss_tokens }),
         },
       })
       sendSSE('message_stop', { type: 'message_stop' })
@@ -187,6 +192,7 @@ function createStreamConverter(upstreamResponse, res) {
     } finally {
       reader.releaseLock()
     }
+    return finalUsage
   }
 
   return { pipe }

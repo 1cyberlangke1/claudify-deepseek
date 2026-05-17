@@ -57,19 +57,35 @@ async function handleMessages(req, res) {
       res.setHeader('Connection', 'keep-alive')
 
       const converter = createStreamConverter(upstreamRes, res)
-      await converter.pipe()
+      const usage = await converter.pipe()
       res.end()
-      logger.info('→ stream complete', { ms: Date.now() - start })
+      const u = usage || {}
+      logger.info('→ stream complete', {
+        ms: Date.now() - start,
+        in_tokens: u.prompt_tokens || 0,
+        out_tokens: u.completion_tokens || 0,
+        cache_hit: u.prompt_cache_hit_tokens,
+        cache_miss: u.prompt_cache_miss_tokens,
+        cache_rate: u.prompt_cache_hit_tokens != null && (u.prompt_cache_hit_tokens + (u.prompt_cache_miss_tokens || 0)) > 0
+          ? ((u.prompt_cache_hit_tokens / (u.prompt_cache_hit_tokens + (u.prompt_cache_miss_tokens || 0))) * 100).toFixed(1) + '%'
+          : undefined,
+      })
     } else {
       const data = await upstreamRes.json()
       const claudeRes = convertNonStreaming(data)
       res.json(claudeRes)
+      const u = data.usage || {}
       logger.info('→ response sent', {
         ms: Date.now() - start,
         stop_reason: claudeRes.stop_reason,
         blocks: claudeRes.content.length,
         in_tokens: claudeRes.usage.input_tokens,
         out_tokens: claudeRes.usage.output_tokens,
+        cache_hit: u.prompt_cache_hit_tokens,
+        cache_miss: u.prompt_cache_miss_tokens,
+        cache_rate: u.prompt_cache_hit_tokens != null && (u.prompt_cache_hit_tokens + (u.prompt_cache_miss_tokens || 0)) > 0
+          ? ((u.prompt_cache_hit_tokens / (u.prompt_cache_hit_tokens + (u.prompt_cache_miss_tokens || 0))) * 100).toFixed(1) + '%'
+          : undefined,
       })
     }
   } catch (err) {
