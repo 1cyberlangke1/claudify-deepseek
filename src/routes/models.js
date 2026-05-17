@@ -27,7 +27,7 @@ async function handleModels(req, res) {
     object: 'list',
     data: [
       {
-        id: config.upstreamModel,
+        id: 'deepseek-v4-flash-free',
         object: 'model',
         created: Math.floor(Date.now() / 1000),
         owned_by: 'openai',

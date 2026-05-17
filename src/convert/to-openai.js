@@ -1,5 +1,3 @@
-const config = require('../config')
-
 function convertMessages(claudeMsgs) {
   const out = []
   let pendingToolResults = []
@@ -90,11 +88,7 @@ function convertRequest(body) {
   messages.push(...convertMessages(body.messages || []))
 
   const req = {
-    model: body.model
-      ? body.model.startsWith('deepseek')
-        ? body.model
-        : config.upstreamModel
-      : config.upstreamModel,
+    model: body.model,
     messages,
   }
 
