@@ -1,5 +1,7 @@
 function getApiKey(req) {
-  return req.headers['x-api-key'] || req.headers['anthropic-auth-token'] || null
+  const auth = req.headers['authorization']
+  const bearer = auth?.startsWith('Bearer ') ? auth.slice(7) : null
+  return req.headers['x-api-key'] || bearer || null
 }
 
 function buildToolCallMap(toolCalls) {

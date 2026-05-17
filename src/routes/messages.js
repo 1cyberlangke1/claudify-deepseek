@@ -18,9 +18,10 @@ async function handleMessages(req, res) {
 
   const apiKey = getApiKey(req)
   if (!apiKey) {
+    logger.warn('auth missing', { headers: Object.keys(req.headers).filter(h => h.startsWith('x-') || h.startsWith('anthropic') || h === 'authorization') })
     return res.status(401).json({
       type: 'error',
-      error: { type: 'authentication_error', message: 'x-api-key or anthropic-auth-token header required' },
+      error: { type: 'authentication_error', message: 'x-api-key or Authorization: Bearer header required' },
     })
   }
 

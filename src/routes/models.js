@@ -6,7 +6,7 @@ async function handleModels(req, res) {
   if (!apiKey) {
     return res.status(401).json({
       type: 'error',
-      error: { type: 'authentication_error', message: 'x-api-key or anthropic-auth-token header required' },
+      error: { type: 'authentication_error', message: 'x-api-key or Authorization: Bearer header required' },
     })
   }
   try {

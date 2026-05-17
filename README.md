@@ -4,7 +4,7 @@ DeepSeek 风格 API → Claude (Anthropic) 风格 API 的代理，将只提供 O
 
 ## 问题
 
-某些 DeepSeek 兼容提供商只提供 OpenAI 格式的 API（`POST /chat/completions`），而 Claude Code 等工具只认 Anthropic 格式（`POST /v1/messages`）。直接代理会触发：
+某些 DeepSeek 兼容提供商 （比如 OpenCode）只提供 OpenAI 格式的 API（`POST /chat/completions`），而 Claude Code 等工具只认 Anthropic 格式（`POST /v1/messages`）。直接代理会触发：
 
 ```
 Error 400: The reasoning_content in the thinking mode must be passed back to the API

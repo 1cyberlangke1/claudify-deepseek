@@ -12,7 +12,8 @@ function createServer() {
     const start = Date.now()
     res.on('finish', () => {
       const ms = Date.now() - start
-      logger.info(`${req.method} ${req.originalUrl}`, { status: res.statusCode, ms })
+      const level = res.statusCode >= 400 ? 'warn' : 'info'
+      logger[level](`${req.method} ${req.originalUrl}`, { status: res.statusCode, ms })
     })
     next()
   })
