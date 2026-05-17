@@ -1,6 +1,6 @@
 const { FINISH_REASON_MAP } = require('../convert/to-anthropic')
 
-function createStreamConverter(upstreamResponse, res) {
+function createStreamConverter(upstreamResponse, res, estimatedPromptTokens) {
   const reader = upstreamResponse.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -13,6 +13,7 @@ function createStreamConverter(upstreamResponse, res) {
   let toolIndexToBlockIndex = {}
   let toolBlockIndicesInOrder = []
   let finalUsage = null
+  const promptTokens = estimatedPromptTokens || 0
 
   function sendSSE(event, data) {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
@@ -66,7 +67,7 @@ function createStreamConverter(upstreamResponse, res) {
           model: model,
           stop_reason: null,
           stop_sequence: null,
-          usage: { input_tokens: 0, output_tokens: 0 },
+          usage: { input_tokens: promptTokens, output_tokens: 0 },
         },
       })
       hasStarted = true
@@ -150,8 +151,6 @@ function createStreamConverter(upstreamResponse, res) {
         usage: {
           input_tokens: usage ? (usage.prompt_tokens || 0) : 0,
           output_tokens: usage ? (usage.completion_tokens || 0) : 0,
-          ...(usage?.prompt_cache_hit_tokens != null && { cache_read_input_tokens: usage.prompt_cache_hit_tokens }),
-          ...(usage?.prompt_cache_miss_tokens != null && { cache_creation_input_tokens: usage.prompt_cache_miss_tokens }),
         },
       })
       sendSSE('message_stop', { type: 'message_stop' })

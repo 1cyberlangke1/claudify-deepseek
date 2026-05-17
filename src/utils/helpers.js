@@ -4,6 +4,36 @@ function getApiKey(req) {
   return req.headers['x-api-key'] || bearer || null
 }
 
+function estimatePromptTokens(body) {
+  let text = ''
+  if (body.system) text += body.system + ' '
+  if (body.messages) {
+    for (const m of body.messages) {
+      if (typeof m.content === 'string') text += m.content + ' '
+      else if (Array.isArray(m.content)) {
+        for (const b of m.content) {
+          if (b.type === 'text') text += b.text + ' '
+          else if (b.type === 'tool_result') {
+            if (typeof b.content === 'string') text += b.content + ' '
+            else if (Array.isArray(b.content)) {
+              for (const c of b.content) {
+                if (c.type === 'text') text += c.text + ' '
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (body.tools) {
+    for (const t of body.tools) {
+      if (t.description) text += t.description + ' '
+      if (t.name) text += t.name + ' '
+    }
+  }
+  return Math.max(1, Math.round(text.length / 3.5))
+}
+
 function buildToolCallMap(toolCalls) {
   if (!toolCalls) return null
   const map = {}
@@ -24,4 +54,4 @@ function parseToolCallDelta(delta) {
   return buildToolCallMap(delta.tool_calls)
 }
 
-module.exports = { getApiKey, buildToolCallMap, parseToolCallDelta }
+module.exports = { getApiKey, estimatePromptTokens, buildToolCallMap, parseToolCallDelta }

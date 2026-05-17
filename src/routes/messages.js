@@ -2,7 +2,7 @@ const config = require('../config')
 const { convertRequest } = require('../convert/to-openai')
 const { convertNonStreaming } = require('../convert/to-anthropic')
 const { createStreamConverter } = require('../stream/convert-stream')
-const { getApiKey } = require('../utils/helpers')
+const { getApiKey, estimatePromptTokens } = require('../utils/helpers')
 const logger = require('../utils/logger')
 
 async function handleMessages(req, res) {
@@ -56,7 +56,8 @@ async function handleMessages(req, res) {
       res.setHeader('Cache-Control', 'no-cache')
       res.setHeader('Connection', 'keep-alive')
 
-      const converter = createStreamConverter(upstreamRes, res)
+      const estimatedPromptTokens = estimatePromptTokens(body)
+      const converter = createStreamConverter(upstreamRes, res, estimatedPromptTokens)
       const usage = await converter.pipe()
       res.end()
       const u = usage || {}
