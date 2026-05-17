@@ -33,6 +33,13 @@ export ANTHROPIC_BASE_URL=http://localhost:3000
 export ANTHROPIC_API_KEY=<你的 upstream API key>
 ```
 
+model 名直接透传，Claude Code 发什么 upstream 就收什么。如果你的上游是 DeepSeek 系，可以在 `.env` 或 `CLAUDE.md` 里指定：
+
+```bash
+# Claude Code 发这个模型名，代理原样转发给 upstream
+export ANTHROPIC_MODEL=deepseek-v4-flash-free
+```
+
 `ANTHROPIC_API_KEY` 会通过 `Authorization: Bearer` 头自动透传给 upstream，无需额外配置。
 
 ## 配置
