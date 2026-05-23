@@ -32,14 +32,10 @@ function convertMessages(claudeMsgs) {
         if (block.type === 'text') {
           textParts.push(block.text)
         } else if (block.type === 'tool_result') {
-          flushToolResults()
-          if (textParts.length > 0) {
-            out.push({ role: 'user', content: textParts.join('') })
-            textParts = []
-          }
           pendingToolResults.push(block)
         }
       }
+      flushToolResults()
       if (textParts.length > 0) {
         out.push({ role: 'user', content: textParts.join('') })
       }
