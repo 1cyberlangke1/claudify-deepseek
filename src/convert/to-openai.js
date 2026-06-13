@@ -94,8 +94,11 @@ function convertRequest(body) {
     req.extra_body = { thinking: { type: 'enabled' } }
   }
 
+  const EFFORT_MAP = { low: 'high', medium: 'high', high: 'high', xhigh: 'max' }
   if (body.output_config && body.output_config.effort) {
-    req.reasoning_effort = body.output_config.effort
+    req.reasoning_effort = EFFORT_MAP[body.output_config.effort] || body.output_config.effort
+  } else if (body.reasoning_effort) {
+    req.reasoning_effort = EFFORT_MAP[body.reasoning_effort] || body.reasoning_effort
   }
 
   if (body.stop_sequences && body.stop_sequences.length > 0) {
