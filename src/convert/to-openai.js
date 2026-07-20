@@ -1,3 +1,46 @@
+const { isEnabled: visionEnabled, describeImage, resetBatch, getBatchStats } = require('../utils/vision')
+const logger = require('../utils/logger')
+
+async function applyVision(messages) {
+  if (!visionEnabled()) return messages
+
+  // 全量扫描所有 tool_result.content 中的 image
+  const images = []
+  for (let mi = 0; mi < messages.length; mi++) {
+    const c = messages[mi].content
+    if (!Array.isArray(c)) continue
+    for (let bi = 0; bi < c.length; bi++) {
+      if (c[bi]?.type !== 'tool_result') continue
+      const nested = Array.isArray(c[bi].content) ? c[bi].content : []
+      for (let ni = 0; ni < nested.length; ni++) {
+        if (nested[ni]?.type === 'image') {
+          images.push({ mi, bi, ni, src: nested[ni].source || {} })
+        }
+      }
+    }
+  }
+
+  if (images.length === 0) return messages
+
+  resetBatch()
+  const descs = await Promise.all(images.map(i => describeImage(i.src.data, i.src.media_type)))
+  const errors = descs.filter(d => d.startsWith('[Vision')).length
+  const batch = getBatchStats()
+  logger.info('→ vision apply', { found: images.length, cached: batch.hit, fetch: batch.miss, errors })
+
+  const result = messages.map(m => ({ ...m, content: Array.isArray(m.content) ? [...m.content] : m.content }))
+  for (let idx = 0; idx < images.length; idx++) {
+    const img = images[idx]
+    if (!Array.isArray(result[img.mi].content)) continue
+    const block = result[img.mi].content[img.bi]
+    if (block?.type !== 'tool_result') continue
+    const inner = Array.isArray(block.content) ? [...block.content] : []
+    inner[img.ni] = { type: 'text', text: `[Image] ${descs[idx]}` }
+    result[img.mi].content[img.bi] = { ...block, content: inner }
+  }
+  return result
+}
+
 function convertMessages(claudeMsgs) {
   const out = []
   let pendingToolResults = []
@@ -96,7 +139,7 @@ function convertTools(tools, webSearchConfig) {
       function: {
         name: t.name,
         description: t.description || '',
-        parameters: t.input_schema || { type: 'object', properties: {} },
+        parameters: t.input_schema || {},
       },
     }))
 
@@ -118,20 +161,20 @@ function convertTools(tools, webSearchConfig) {
   return result.length > 0 ? result : undefined
 }
 
-function convertRequest(body) {
+async function convertRequest(body) {
   const messages = []
+  const filtered = (body.messages || []).map((m, i) =>
+    i > 0 && m.role === 'system' ? { ...m, role: 'user' } : m
+  )
+  const processed = await applyVision(filtered)
   if (body.system) {
     messages.push({ role: 'system', content: body.system })
   }
-  messages.push(...convertMessages(body.messages || []))
+  messages.push(...convertMessages(processed))
 
   const wsConfig = detectWebSearch(body.tools)
 
-  const req = {
-    model: body.model,
-    messages,
-    tools: convertTools(body.tools, wsConfig),
-  }
+  const req = { model: body.model, messages }
 
   if (body.max_tokens !== undefined) req.max_tokens = body.max_tokens
 
@@ -153,6 +196,8 @@ function convertRequest(body) {
   if (body.temperature !== undefined) req.temperature = body.temperature
   if (body.top_p !== undefined) req.top_p = body.top_p
   if (body.stream !== undefined) req.stream = body.stream
+
+  if (body.tools) req.tools = convertTools(body.tools, wsConfig)
 
   if (body.tool_choice) {
     if (typeof body.tool_choice === 'object') {

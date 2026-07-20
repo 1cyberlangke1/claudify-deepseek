@@ -8,18 +8,7 @@ const maxFiles = parseInt(process.env.LOG_FILE_MAX_FILES, 10) || 5
 
 function localTimestamp() {
   const d = new Date()
-  const y = d.getFullYear()
-  const M = String(d.getMonth() + 1).padStart(2, '0')
-  const D = String(d.getDate()).padStart(2, '0')
-  const h = String(d.getHours()).padStart(2, '0')
-  const m = String(d.getMinutes()).padStart(2, '0')
-  const s = String(d.getSeconds()).padStart(2, '0')
-  const ms = String(d.getMilliseconds()).padStart(3, '0')
-  const off = -d.getTimezoneOffset()
-  const sign = off >= 0 ? '+' : '-'
-  const tzH = String(Math.abs(Math.floor(off / 60))).padStart(2, '0')
-  const tzM = String(Math.abs(off % 60)).padStart(2, '0')
-  return `${y}-${M}-${D}T${h}:${m}:${s}.${ms}${sign}${tzH}:${tzM}`
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`
 }
 
 const logFormat = winston.format.printf(({ level, message, ...meta }) => {

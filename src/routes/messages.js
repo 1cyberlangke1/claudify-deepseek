@@ -4,7 +4,15 @@ const { convertNonStreaming } = require('../convert/to-anthropic')
 const { createStreamConverter } = require('../stream/convert-stream')
 const { getApiKey, estimatePromptTokens } = require('../utils/helpers')
 const { webSearch } = require('../utils/search')
+const { getStats: getVisionStats } = require('../utils/vision')
+const cacheMonitor = require('../utils/cache-monitor')
 const logger = require('../utils/logger')
+
+function calcCacheRate(hit, miss) {
+  if (hit == null || miss == null) return undefined
+  const total = hit + miss
+  return total > 0 ? ((hit / total) * 100).toFixed(1) + '%' : undefined
+}
 
 async function collectUpstream(openaiReq, apiKey) {
   const res = await fetch(`${config.upstreamBaseUrl}/chat/completions`, {
@@ -183,8 +191,8 @@ async function handleMessages(req, res) {
     })
   }
 
-  const wsConfig = detectWebSearch(body.tools)
-  const openaiReq = convertRequest(body)
+  const wsConfig = process.env.WEB_SEARCH_ENABLED !== 'false' ? detectWebSearch(body.tools) : null
+  const openaiReq = await convertRequest(body)
 
   if (wsConfig) {
     logger.info('→ web_search path', { max_uses: wsConfig.maxUses })
@@ -233,7 +241,7 @@ async function handleMessages(req, res) {
 
   const start = Date.now()
   try {
-    logger.debug('→ upstream POST', { url: `${config.upstreamBaseUrl}/chat/completions` })
+    logger.debug('→ upstream POST', { url: `${config.upstreamBaseUrl}/chat/completions`, body: JSON.stringify(openaiReq) })
     const upstreamRes = await fetch(`${config.upstreamBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -257,23 +265,35 @@ async function handleMessages(req, res) {
       const usage = await converter.pipe()
       res.end()
       const u = usage || {}
+      const hit = u.prompt_cache_hit_tokens
+      const miss = u.prompt_cache_miss_tokens
+      const rateNum = (hit != null && miss != null && hit + miss > 0) ? (hit / (hit + miss) * 100) : 0
       logger.info('→ stream complete', {
         ms: Date.now() - start,
         in_tokens: u.prompt_tokens || 0,
         out_tokens: u.completion_tokens || 0,
+        cache_rate: rateNum > 0 ? rateNum.toFixed(1) + '%' : undefined,
+        vision_cache: getVisionStats().rate,
       })
+      cacheMonitor.record({ rate: rateNum, msg_count: body.messages?.length || 0, in_tokens: u.prompt_tokens || 0, vision_cache: getVisionStats().rate, body: JSON.stringify(openaiReq) })
     } else {
       const data = await upstreamRes.json()
       const claudeRes = convertNonStreaming(data)
       res.json(claudeRes)
       const u = data.usage || {}
+      const hit2 = u.prompt_cache_hit_tokens
+      const miss2 = u.prompt_cache_miss_tokens
+      const rateNum2 = (hit2 != null && miss2 != null && hit2 + miss2 > 0) ? (hit2 / (hit2 + miss2) * 100) : 0
       logger.info('→ response sent', {
         ms: Date.now() - start,
         stop_reason: claudeRes.stop_reason,
         blocks: claudeRes.content.length,
         in_tokens: claudeRes.usage.input_tokens,
         out_tokens: claudeRes.usage.output_tokens,
+        cache_rate: rateNum2 > 0 ? rateNum2.toFixed(1) + '%' : undefined,
+        vision_cache: getVisionStats().rate,
       })
+      cacheMonitor.record({ rate: rateNum2, msg_count: body.messages?.length || 0, in_tokens: u.prompt_tokens || 0, vision_cache: getVisionStats().rate, body: JSON.stringify(openaiReq) })
     }
   } catch (err) {
     logger.error('request failed', { ms: Date.now() - start, error: err.message })
