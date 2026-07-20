@@ -1,3 +1,7 @@
 node_modules/
 .env
 .sisyphus/
+AGENTS.md
+HANDOFF.md
+logs/
+tmp/

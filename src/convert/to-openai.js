@@ -76,6 +76,48 @@ function convertMessages(claudeMsgs) {
   return out
 }
 
+function detectWebSearch(tools) {
+  if (!tools) return null
+  const ws = tools.find(t => t.type === 'web_search_20250305')
+  if (!ws) return null
+  return {
+    maxUses: ws.max_uses || 3,
+    userLocation: ws.user_location || null,
+  }
+}
+
+function convertTools(tools, webSearchConfig) {
+  if (!tools || tools.length === 0) return undefined
+
+  let result = tools
+    .filter(t => t.type !== 'web_search_20250305')
+    .map(t => ({
+      type: 'function',
+      function: {
+        name: t.name,
+        description: t.description || '',
+        parameters: t.input_schema || { type: 'object', properties: {} },
+      },
+    }))
+
+  if (webSearchConfig) {
+    result.push({
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: 'Search the web for current information. Use this when you need up-to-date facts, news, or information that may not be in your training data.',
+        parameters: {
+          type: 'object',
+          properties: { query: { type: 'string', description: 'The search query to look up on the web' } },
+          required: ['query'],
+        },
+      },
+    })
+  }
+
+  return result.length > 0 ? result : undefined
+}
+
 function convertRequest(body) {
   const messages = []
   if (body.system) {
@@ -83,9 +125,12 @@ function convertRequest(body) {
   }
   messages.push(...convertMessages(body.messages || []))
 
+  const wsConfig = detectWebSearch(body.tools)
+
   const req = {
     model: body.model,
     messages,
+    tools: convertTools(body.tools, wsConfig),
   }
 
   if (body.max_tokens !== undefined) req.max_tokens = body.max_tokens
@@ -109,17 +154,6 @@ function convertRequest(body) {
   if (body.top_p !== undefined) req.top_p = body.top_p
   if (body.stream !== undefined) req.stream = body.stream
 
-  if (body.tools && body.tools.length > 0) {
-    req.tools = body.tools.map(t => ({
-      type: 'function',
-      function: {
-        name: t.name,
-        description: t.description || '',
-        parameters: t.input_schema || {},
-      },
-    }))
-  }
-
   if (body.tool_choice) {
     if (typeof body.tool_choice === 'object') {
       if (body.tool_choice.type === 'any') {
@@ -140,4 +174,4 @@ function convertRequest(body) {
   return req
 }
 
-module.exports = { convertRequest }
+module.exports = { convertRequest, detectWebSearch }
